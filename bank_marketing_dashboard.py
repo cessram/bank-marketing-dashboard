@@ -10,6 +10,7 @@ Date: November 2025
 ============================================================================
 
 To run: streamlit run bank_marketing_dashboard_dark.py
+pip install streamlit pandas numpy plotly scikit-learn xgboost ucimlrepo
 """
 
 # ============================================================================
@@ -860,8 +861,81 @@ for i, col in enumerate(categorical_features, 1):
             for i, col in enumerate(categorical_features, 1):
                 st.markdown(f"{i}. `{col}`")
 
-    # STEP 10: Model Training Overview
-    with st.expander("🤖 STEP 10: Machine Learning Model Training", expanded=False):
+    # STEP 10: EDA - Visualization (Duration Analysis)
+    with st.expander("📞 STEP 10: EDA - Visualization (Duration Analysis)", expanded=False):
+        st.markdown("""
+        **What we're doing here:**  
+        Analyzing call duration distributions between subscribers and non-subscribers using box plots 
+        and violin plots. Duration is typically the strongest predictor in bank marketing datasets.
+
+        **Why this matters:**  
+        Call duration serves as a real-time indicator of customer interest and engagement. Understanding 
+        this relationship helps inform agent training and conversation strategies.
+        """)
+
+        st.code("""
+def plot_duration_analysis(df, target_col):
+    \"\"\"Duration is typically the strongest predictor in bank marketing\"\"\"
+    fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+
+    # Box plot (with outlier handling)
+    sns.boxplot(data=df, x=target_col, y='duration', 
+                palette=['#e74c3c', '#2ecc71'], ax=ax[0])
+    ax[0].set_title('Call Duration by Subscription Status', fontsize=14, fontweight='bold')
+    ax[0].set_xlabel('Subscription Status', fontsize=12)
+    ax[0].set_ylabel('Duration (seconds)', fontsize=12)
+    ax[0].set_ylim(0, 1000)  # Cap at 1000 seconds for better visualization
+
+    # Violin plot for distribution shape
+    sns.violinplot(data=df, x=target_col, y='duration', 
+                   palette=['#e74c3c', '#2ecc71'], ax=ax[1])
+    ax[1].set_title('Call Duration Distribution Shape', fontsize=14, fontweight='bold')
+    ax[1].set_xlabel('Subscription Status', fontsize=12)
+    ax[1].set_ylabel('Duration (seconds)', fontsize=12)
+    ax[1].set_ylim(0, 1000)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Print summary statistics
+    print("Duration Statistics by Subscription (seconds):")
+    print(df.groupby(target_col)['duration'].describe()[['mean', '50%', 'std']].round(2))
+
+plot_duration_analysis(df, 'y')
+        """, language="python")
+
+        # Show actual results
+        st.markdown("**📊 Duration Statistics by Subscription (seconds):**")
+        duration_stats = df.groupby('y')['duration'].describe()[['mean', '50%', 'std']].round(2)
+        duration_stats.columns = ['Mean', 'Median', 'Std Dev']
+        st.dataframe(duration_stats, use_container_width=True)
+
+        # Calculate ratio
+        yes_mean = df[df['y'] == 'yes']['duration'].mean()
+        no_mean = df[df['y'] == 'no']['duration'].mean()
+        ratio = yes_mean / no_mean
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Non-Subscribers", f"{no_mean:.0f} sec", help="Average call duration")
+        with col2:
+            st.metric("Subscribers", f"{yes_mean:.0f} sec", help="Average call duration")
+        with col3:
+            st.metric("Multiplier", f"{ratio:.2f}x", delta="Longer calls = Higher conversion")
+
+        st.error(f"""
+        🔥 **KEY FINDING:** Subscribers have **{ratio:.2f}x longer call duration!**
+
+        - Non-subscribers: ~221 seconds (< 4 minutes)
+        - Subscribers: ~537 seconds (> 9 minutes)
+
+        **Business Insight:** Longer conversations indicate genuine interest. Focus on agent training 
+        to extend meaningful engagement rather than rushing calls.
+        """)
+
+
+    # STEP 11: Model Training Overview
+    with st.expander("🤖 STEP 11: Machine Learning Model Training", expanded=False):
         st.markdown("""
         **What we're doing here:**  
         Training three different machine learning models to predict customer subscription:
@@ -928,8 +1002,8 @@ xgb_model.fit(X_train, y_train)
         ✓ **XGBoost selected as best model** based on ROC-AUC and Recall scores!
         """)
 
-    # STEP 11: Confusion Matrix - XGBoost
-    with st.expander("📊 STEP 11: Confusion Matrix - XGBoost", expanded=False):
+    # STEP 12: Confusion Matrix - XGBoost
+    with st.expander("📊 STEP 12: Confusion Matrix - XGBoost", expanded=False):
         st.markdown("""
         **What we're doing here:**  
         Creating a confusion matrix to visualize how well our XGBoost model performs. The confusion 
@@ -993,8 +1067,8 @@ print(f"  True Positives (TP):  {tp:,}")
         This is critical for marketing ROI.
         """)
 
-    # STEP 12: Feature Importance - XGBoost
-    with st.expander("🔑 STEP 12: Feature Importance - XGBoost", expanded=False):
+    # STEP 13: Feature Importance - XGBoost
+    with st.expander("🔑 STEP 13: Feature Importance - XGBoost", expanded=False):
         st.markdown("""
         **What we're doing here:**  
         Extracting and visualizing which features (variables) the XGBoost model considers most 
@@ -1054,8 +1128,8 @@ plt.show()
         For prospective targeting, focus on `poutcome`, `month`, and `job` features!
         """)
 
-    # STEP 13: Model Comparison
-    with st.expander("⚖️ STEP 13: Model Comparison - All Three Models", expanded=False):
+    # STEP 14: Model Comparison
+    with st.expander("⚖️ STEP 14: Model Comparison - All Three Models", expanded=False):
         st.markdown("""
         **What we're doing here:**  
         Comparing all three models (Logistic Regression, Random Forest, XGBoost) across multiple 
@@ -1097,32 +1171,6 @@ comparison_df = pd.DataFrame({
 print("\\n" + comparison_df.to_string(index=False))
         """, language="python")
 
-        st.code("""
-# Visualize Model Comparison
-fig, ax = plt.subplots(figsize=(14, 6))
-metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
-x = np.arange(len(metrics))
-width = 0.25
-
-ax.bar(x - width, comparison_df.iloc[0, 1:], width, 
-       label='Logistic Regression', color='#3498db', alpha=0.8)
-ax.bar(x, comparison_df.iloc[1, 1:], width, 
-       label='Random Forest', color='#2ecc71', alpha=0.8)
-ax.bar(x + width, comparison_df.iloc[2, 1:], width, 
-       label='XGBoost', color='#9b59b6', alpha=0.8)
-
-ax.set_xlabel('Metrics', fontsize=12, fontweight='bold')
-ax.set_ylabel('Score', fontsize=12, fontweight='bold')
-ax.set_title('Model Performance Comparison', fontsize=14, fontweight='bold')
-ax.set_xticks(x)
-ax.set_xticklabels(metrics)
-ax.legend()
-ax.set_ylim(0, 1.0)
-ax.grid(axis='y', alpha=0.3)
-plt.tight_layout()
-plt.show()
-        """, language="python")
-
         st.markdown("**Model Comparison Results:**")
         st.markdown("""
         | Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
@@ -1159,6 +1207,12 @@ plt.show()
     - **Predictions** - Try the model with custom inputs
     - **Conclusions** - Final recommendations and ROI impact
     """)
+
+
+
+
+
+
 
 # ============================================================================
 # PAGE: DATA OVERVIEW
@@ -2273,4 +2327,3 @@ st.markdown("""
     <p>Lawrence Okolo & Princess Mariama Ramboyong | Northeastern University</p>
 </div>
 """, unsafe_allow_html=True)
-
